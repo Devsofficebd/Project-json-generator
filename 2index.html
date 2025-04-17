@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+  <title>JSON Generator</title>
+  <style>
+
+
+
+
+    body { font-family: Arial; padding: 0px; background: #f4f4f4; margin: 0 auto; box-sizing: border-box; width: 90vw; }
+    input, button { padding: 6px; margin: 5px; }
+    input#searchInput {
+    display: block;
+    width: 100%;
+    padding: 15px;
+}
+.center_now{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+textarea#exportOutput {
+    height: 200px !important;
+    padding: 20px;
+}
+    .box-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+    justify-content: center;
+    align-items: center;
+}
+    .box {
+      background: white; padding: 15px; width: 100%; max-width: 300px; border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1); position: relative;
+    }
+    .box h3 { margin-top: 0; font-size: 18px; }
+    .remove-box {
+      position: absolute; top: 8px; right: 8px; background: red;
+      color: white; border: none; border-radius: 4px; padding: 2px 6px;
+    }
+    ul { padding-left: 0; list-style: none; }
+    li {
+      display: flex; justify-content: space-between; margin-bottom: 6px;
+    }
+    li a {
+      flex: 1; color: #007bff; text-decoration: none; word-break: break-all;
+    }
+    .icon-button { background: none; border: none; font-size: 16px; cursor: pointer; }
+    .add-link-input { width: 80%; margin-top: 10px; padding: 5px; }
+    textarea { width: 90%; height: max-content; margin-top: 10px; padding: 5px; }
+    .copy-json-button {
+      background: none; border: none; font-size: 16px; color: #007bff; cursor: pointer; margin-top: 5px;
+    }
+    /* Media Queries */
+    @media (max-width: 768px) {
+      .box-container {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .box {
+        max-width: 100%;
+        width: 100%;
+      }
+      .box h3 { font-size: 16px; }
+      .add-link-input { font-size: 14px; }
+      textarea { font-size: 14px; height: 120px; }
+      .remove-box { font-size: 12px; padding: 2px 4px; }
+      .copy-json-button { font-size: 14px; }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 10px; }
+      input, button { font-size: 14px; }
+      .box h3 { font-size: 14px; }
+      .copy-json-button { font-size: 12px; }
+      .add-link-input { font-size: 12px; }
+      textarea { font-size: 12px; height: 100px; }
+    }
+  </style>
+</head>
+<body>
+<div class="center_now">
+  <input type="text" id="searchInput" placeholder="Search...">
+  <button onclick="addBox()">+ Add New Box</button>
+  <button onclick="exportBoxes()">📤 Export All Boxes</button>
+  <button onclick="clearStorage()">Clear Storage</button>
+
+</div>
+  <div class="box-container" id="boxContainer"></div>
+  <textarea id="exportOutput" placeholder="Exported JSON will appear here..."></textarea>
+
+  <script>
+    // Load boxes from localStorage if available, else use default data
+    const defaultBoxes = [
+    ];
+
+    let boxes = JSON.parse(localStorage.getItem('boxes')) || defaultBoxes;
+
+    function renderBoxes() {
+      const container = document.getElementById('boxContainer');
+      container.innerHTML = '';
+      boxes.forEach((box, index) => {
+        const el = document.createElement('div');
+        el.className = 'box';
+        el.setAttribute('data-index', index);
+        el.innerHTML = `
+          <button class="remove-box" onclick="removeBox(${index})">X</button>
+          <h3 contenteditable="true" oninput="updateBoxName(${index}, this.textContent)">${box.name}</h3>
+          <textarea placeholder="Description" oninput="updateBoxDescription(${index}, this.value)">${box.description}</textarea>
+          <ul class="links-list"></ul>
+          <input type="text" class="add-link-input" placeholder="Add a new link and press Enter">
+          <button class="copy-json-button" onclick="copyBoxJson(${index})">Copy JSON</button>
+        `;
+
+        const ul = el.querySelector('ul');
+        box.links.forEach(link => {
+          const li = document.createElement('li');
+          const safeLink = link.startsWith('http') ? link : 'https://' + link;
+          li.innerHTML = `
+            <a href="${safeLink}" target="_blank">${link}</a>
+            <button class="icon-button" onclick="removeLink(${index}, '${link}')">x</button>
+          `;
+          ul.appendChild(li);
+        });
+
+        const input = el.querySelector('.add-link-input');
+        input.addEventListener('keypress', e => {
+          if (e.key === 'Enter' && input.value.trim()) {
+            boxes[index].links.push(input.value.trim());
+            saveBoxes();
+            renderBoxes();
+          }
+        });
+
+        container.appendChild(el);
+      });
+    }
+
+    function removeBox(index) {
+      boxes.splice(index, 1);
+      saveBoxes();
+      renderBoxes();
+    }
+
+    function removeLink(boxIndex, link) {
+      boxes[boxIndex].links = boxes[boxIndex].links.filter(l => l !== link);
+      saveBoxes();
+      renderBoxes();
+    }
+
+    function updateBoxName(index, name) {
+      boxes[index].name = name;
+      saveBoxes();
+    }
+
+    function updateBoxDescription(index, description) {
+      boxes[index].description = description;
+      saveBoxes();
+    }
+
+    function addBox() {
+      boxes.push({ name: 'New Category', description: '', links: [] });
+      saveBoxes();
+      renderBoxes();
+    }
+
+    function saveBoxes() {
+      localStorage.setItem('boxes', JSON.stringify(boxes));
+    }
+
+    function exportBoxes() {
+      const formatted = boxes.map(box => {
+        const links = box.links.map(link => `'${link}'`).join(', ');
+        return `{ name: '${box.name}', description: '${box.description}', links: [${links}] }`;
+      }).join(',\n');
+
+      document.getElementById('exportOutput').value = formatted;
+    }
+
+    function copyBoxJson(index) {
+      const box = boxes[index];
+      const json = JSON.stringify({
+        name: box.name,
+        description: box.description,
+        links: box.links
+      }, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        alert('JSON copied to clipboard!');
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function () {
+      const term = this.value.toLowerCase();
+      document.querySelectorAll('.box').forEach(box => {
+        const title = box.querySelector('h3').textContent.toLowerCase();
+        const links = Array.from(box.querySelectorAll('a')).map(a => a.textContent.toLowerCase());
+        const match = title.includes(term) || links.some(link => link.includes(term));
+        box.style.display = match ? 'block' : 'none';
+      });
+    });
+
+    renderBoxes();
+  </script>
+  <script>
+function clearStorage() {
+  if (confirm("Are you sure you want to clear all saved boxes?")) {
+    localStorage.removeItem('boxes'); // Clears the saved boxes from localStorage
+    boxes = []; // Resets the boxes array
+    renderBoxes(); // Re-renders the page to reflect the cleared storage
+  }
+}
+</script>
+</body>
+</html>
